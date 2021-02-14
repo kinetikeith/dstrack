@@ -64,6 +64,15 @@ public:
 	float*	f4State; // (filtOrder + 1) * 3 length
 	float*	f5State;
 
+private:
+
+	Biquad2D	magPreHighpass;
+	Biquad2D	argPreHighpass;
+	Biquad2D	magLowpass;
+	Biquad2D	argLowpass;
+	Biquad		magPostHighpass;
+	Biquad		argPostLowpass;
+
 }; /* class DSTracker */
 
 
