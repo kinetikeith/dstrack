@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include <iostream>
+
 DSTracker::DSTracker(float mFreq, int wSize, int fOrder, float sRate, int bSize) :
 	minFreq(mFreq), winSize(wSize), filtOrder(fOrder), sampRate(sRate),
        	bufSize(bSize), maxDelay(sRate / (mFreq * 4)), sigSize(maxDelay + 1),
-	sigPos(0), fxPos(0)
+	sigPos(0), fxPos0(0), fxPos1(2), fxPos2(1)
 {
 
 	sigBuffer = new float[sigSize];
@@ -59,23 +61,37 @@ DSTracker::~DSTracker()
 
 }
 
+float* DSTracker::getMagBuffer()
+{
+
+	return magResBuffer;
+
+}
+
+float* DSTracker::getArgBuffer()
+{
+
+	return argResBuffer;
+
+}
+
 void DSTracker::calcCoefs()
 {
 
 	/* Linkwitz-Riley LPF and HPF */
-	float theta_c = (M_PI * minFreq) / sampRate;
-	float omega_c = M_PI * minFreq;
+	float theta_c = (float(M_PI) * minFreq) / sampRate;
+	float omega_c = float(M_PI) * minFreq;
 	float k = omega_c / std::tan(theta_c);
 	float delta = (k * k) + (omega_c * omega_c) + (2 * k * omega_c);
 
 	hpf_b0 = (k * k) / delta;
-	hpf_b1 = -2 * hpf_b0;
-	hpf_b2 = hpf_b0;
-	hpf_a1 = ((-2 * (k * k)) + (2 * (omega_c * omega_c))) / delta;
-	hpf_a2 = ((-2 * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta;
+	hpf_b1 = (-2.0f * (k * k)) / delta;
+	hpf_b2 = (k * k) / delta;
+	hpf_a1 = ((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta;
+	hpf_a2 = ((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta;
 
 	lpf_b0 = (omega_c * omega_c) / delta;
-	lpf_b1 = 2 * lpf_b0;
+	lpf_b1 = 2.0 * lpf_b0;
 	lpf_b2 = lpf_b0;
 	lpf_a1 = hpf_a1;
 	lpf_a2 = hpf_a2;
@@ -96,16 +112,20 @@ void DSTracker::processFrame(float* buf)
 		filterArg();
 
 		calcResult();
+
 		filterResult();
 
-		magResBuffer[i] = f4State[((filtOrder + 1) * 3) + fxPos];
-		argResBuffer[i] = f5State[((filtOrder + 1) * 3) + fxPos];
+		magResBuffer[i] = f4State[(filtOrder * 3) + fxPos0];
+		argResBuffer[i] = f5State[(filtOrder * 3) + fxPos0];
 
 		// Prepare for next frame
 		sigPos = (sigPos + 1) % sigSize;
-		fxPos = (fxPos + 1) % 3; // Duplicate 2x to make higher performance
+		fxPos0 = (fxPos0 + 1) % 3;
+		fxPos1 = (fxPos1 + 1) % 3;
+		fxPos2 = (fxPos2 + 1) % 3;
 
 	}
+
 
 }
 
@@ -120,22 +140,23 @@ void DSTracker::autocorrelate()
 	float argDelta;
 	float arg;
 	float t;
+	float lower;
 
 	for(int j = 0; j < winSize; j++)
 	{
 
 		delay = maxDelay * (float(j + 1) / winSize);
-		t = std::modf(delay, nullptr);
-		cosPos1 = (sigPos - int(delay)) % sigSize;
+		t = std::modf(delay, &lower);
+		cosPos1 = (sigPos - int(lower)) % sigSize;
 		cosPos2 = (sigPos - int(std::ceil(delay))) % sigSize;
 		cosVal = std::lerp(sigBuffer[cosPos1], sigBuffer[cosPos2], t);
 
-		f0State[(fxPos * winSize) + j] = std::sqrt((sinVal * sinVal) + (cosVal * cosVal));
+		f0State[(fxPos0 * winSize) + j] = std::sqrt((sinVal * sinVal) + (cosVal * cosVal));
 		
 		arg = std::atan(cosVal / sinVal);
 		argDelta = (arg - argPreBuffer[j]) / M_PI;
 		argPreBuffer[j] = arg;
-		f1State[(fxPos * winSize) + j] = argDelta - std::round(argDelta);
+		f1State[(fxPos0 * winSize) + j] = argDelta - std::round(argDelta);
 
 	}
 
@@ -156,13 +177,13 @@ void DSTracker::filterMag()
 		for(int j = 0; j < winSize; j++)
 		{
 
-			b0 = hpf_b0 * f0State[(k * 3 * winSize) + (fxPos * winSize) + j];
-			b1 = hpf_b1 * f0State[(k * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			b2 = hpf_b2 * f0State[(k * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
-			a1 = hpf_a1 * f0State[((k + 1) * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			a2 = hpf_a2 * f0State[((k + 1) * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
+			b0 = hpf_b0 * f0State[(k * 3 * winSize) + (fxPos0 * winSize) + j];
+			b1 = hpf_b1 * f0State[(k * 3 * winSize) + (fxPos1 * winSize) + j];
+			b2 = hpf_b2 * f0State[(k * 3 * winSize) + (fxPos2 * winSize) + j];
+			a1 = hpf_a1 * f0State[((k + 1) * 3 * winSize) + (fxPos1 * winSize) + j];
+			a2 = hpf_a2 * f0State[((k + 1) * 3 * winSize) + (fxPos2 * winSize) + j];
 
-			f0State[((k + 1) * 3 * winSize) + (fxPos * winSize) + j] = b0 + b1 + b2 - a1 - a2;
+			f0State[((k + 1) * 3 * winSize) + (fxPos0 * winSize) + j] = b0 + b1 + b2 - (a1 + a2);
 
 		}
 	
@@ -171,7 +192,7 @@ void DSTracker::filterMag()
 	for(int j = 0; j < winSize; j++)
 	{
 
-		f2State[(fxPos * winSize) + j] = std::abs(f0State[(filtOrder * 3 * winSize) + (fxPos * winSize) + j]);
+		f2State[(fxPos0 * winSize) + j] = std::abs(f0State[(filtOrder * 3 * winSize) + (fxPos0 * winSize) + j]);
 
 	}
 
@@ -181,13 +202,13 @@ void DSTracker::filterMag()
 		for(int j = 0; j < winSize; j++)
 		{
 
-			b0 = lpf_b0 * f2State[(k * 3 * winSize) + (fxPos * winSize) + j];
-			b1 = lpf_b1 * f2State[(k * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			b2 = lpf_b2 * f2State[(k * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
-			a1 = lpf_a1 * f2State[((k + 1) * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			a2 = lpf_a2 * f2State[((k + 1) * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
+			b0 = lpf_b0 * f2State[(k * 3 * winSize) + (fxPos0 * winSize) + j];
+			b1 = lpf_b1 * f2State[(k * 3 * winSize) + (fxPos1 * winSize) + j];
+			b2 = lpf_b2 * f2State[(k * 3 * winSize) + (fxPos2 * winSize) + j];
+			a1 = lpf_a1 * f2State[((k + 1) * 3 * winSize) + (fxPos1 * winSize) + j];
+			a2 = lpf_a2 * f2State[((k + 1) * 3 * winSize) + (fxPos2 * winSize) + j];
 	
-			f2State[((k + 1) * 3 * winSize) + (fxPos * winSize) + j] = b0 + b1 + b2 - a1 - a2;
+			f2State[((k + 1) * 3 * winSize) + (fxPos0 * winSize) + j] = b0 + b1 + b2 - (a1 + a2);
 
 		}
 
@@ -196,7 +217,7 @@ void DSTracker::filterMag()
 	for(int j = 0; j < winSize; j++)
 	{
 
-		probBuffer[j] = f2State[(filtOrder * 3 * winSize) + (fxPos * winSize) + j];
+		probBuffer[j] = f2State[(filtOrder * 3 * winSize) + (fxPos0 * winSize) + j];
 
 	}
 
@@ -217,13 +238,13 @@ void DSTracker::filterArg()
 		for(int j = 0; j < winSize; j++)
 		{
 
-			b0 = hpf_b0 * f1State[(k * 3 * winSize) + (fxPos * winSize) + j];
-			b1 = hpf_b1 * f1State[(k * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			b2 = hpf_b2 * f1State[(k * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
-			a1 = hpf_a1 * f1State[((k + 1) * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			a2 = hpf_a2 * f1State[((k + 1) * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
+			b0 = hpf_b0 * f1State[(k * 3 * winSize) + (fxPos0 * winSize) + j];
+			b1 = hpf_b1 * f1State[(k * 3 * winSize) + (fxPos1 * winSize) + j];
+			b2 = hpf_b2 * f1State[(k * 3 * winSize) + (fxPos2 * winSize) + j];
+			a1 = hpf_a1 * f1State[((k + 1) * 3 * winSize) + (fxPos1 * winSize) + j];
+			a2 = hpf_a2 * f1State[((k + 1) * 3 * winSize) + (fxPos2 * winSize) + j];
 
-			f1State[((k + 1) * 3 * winSize) + (fxPos * winSize) + j] = b0 + b1 + b2 - a1 - a2;
+			f1State[((k + 1) * 3 * winSize) + (fxPos0 * winSize) + j] = b0 + b1 + b2 - (a1 + a2);
 
 		}
 	
@@ -232,7 +253,7 @@ void DSTracker::filterArg()
 	for(int j = 0; j < winSize; j++)
 	{
 
-		f3State[(fxPos * winSize) + j] = std::abs(f1State[(filtOrder * 3 * winSize) + (fxPos * winSize) + j]);
+		f3State[(fxPos0 * winSize) + j] = std::abs(f1State[(filtOrder * 3 * winSize) + (fxPos0 * winSize) + j]);
 
 	}
 
@@ -242,13 +263,13 @@ void DSTracker::filterArg()
 		for(int j = 0; j < winSize; j++)
 		{
 
-			b0 = lpf_b0 * f3State[(k * 3 * winSize) + (fxPos * winSize) + j];
-			b1 = lpf_b1 * f3State[(k * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			b2 = lpf_b2 * f3State[(k * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
-			a1 = lpf_a1 * f3State[((k + 1) * 3 * winSize) + (((fxPos - 1) % 3) * winSize) + j];
-			a2 = lpf_a2 * f3State[((k + 1) * 3 * winSize) + (((fxPos - 2) % 3) * winSize) + j];
+			b0 = lpf_b0 * f3State[(k * 3 * winSize) + (fxPos0 * winSize) + j];
+			b1 = lpf_b1 * f3State[(k * 3 * winSize) + (fxPos1 * winSize) + j];
+			b2 = lpf_b2 * f3State[(k * 3 * winSize) + (fxPos2 * winSize) + j];
+			a1 = lpf_a1 * f3State[((k + 1) * 3 * winSize) + (fxPos1 * winSize) + j];
+			a2 = lpf_a2 * f3State[((k + 1) * 3 * winSize) + (fxPos2 * winSize) + j];
 
-			f3State[((k + 1) * 3 * winSize) + (fxPos * winSize) + j] = b0 + b1 + b2 - a1 - a2;
+			f3State[((k + 1) * 3 * winSize) + (fxPos0 * winSize) + j] = b0 + b1 + b2 - (a1 + a2);
 
 		
 		}
@@ -258,7 +279,7 @@ void DSTracker::filterArg()
 	for(int j = 0; j < winSize; j++)
 	{
 
-		probBuffer[j] *= f3State[(filtOrder * 3 * winSize) + (fxPos * winSize) + j];
+		probBuffer[j] *= f3State[(filtOrder * 3 * winSize) + (fxPos0 * winSize) + j];
 
 	}
 
@@ -282,8 +303,8 @@ void DSTracker::calcResult()
 
 	}
 
-	f4State[fxPos] = f0State[(fxPos * winSize) + minJ];
-	f5State[fxPos] = std::abs(f1State[(fxPos * winSize) + minJ]);
+	f4State[fxPos0] = f0State[(fxPos0 * winSize) + minJ];
+	f5State[fxPos0] = std::abs(f1State[(fxPos0 * winSize) + minJ]);
 
 }
 	
@@ -297,26 +318,26 @@ void DSTracker::filterResult()
 	for(int k = 0; k < filtOrder; k++)
 	{
 
-		b0 = lpf_b0 * f4State[(k * 3) + fxPos];
-		b1 = lpf_b1 = f4State[(k * 3) + ((fxPos - 1) % 3)];
-		b2 = lpf_b2 = f4State[(k * 3) + ((fxPos - 2) % 3)];
-		a1 = lpf_b2 = f4State[((k + 1) * 3) + ((fxPos - 1) % 3)];
-		a2 = lpf_b2 = f4State[((k + 1) * 3) + ((fxPos - 2) % 3)];
+		b0 = lpf_b0 * f4State[(k * 3) + fxPos0];
+		b1 = lpf_b1 = f4State[(k * 3) + fxPos1];
+		b2 = lpf_b2 = f4State[(k * 3) + fxPos2];
+		a1 = lpf_b2 = f4State[((k + 1) * 3) + fxPos1];
+		a2 = lpf_b2 = f4State[((k + 1) * 3) + fxPos2];
 
-		f4State[((k + 1) * 3) + fxPos] = b0 + b1 + b2 - a1 - a2;
+		f4State[((k + 1) * 3) + fxPos0] = b0 + b1 + b2 - (a1 + a2);
 
 	}
 
 	for(int k = 0; k < filtOrder; k++)
 	{
 
-		b0 = lpf_b0 * f5State[(k * 3) + fxPos];
-		b1 = lpf_b1 = f5State[(k * 3) + ((fxPos - 1) % 3)];
-		b2 = lpf_b2 = f5State[(k * 3) + ((fxPos - 2) % 3)];
-		a1 = lpf_b2 = f5State[((k + 1) * 3) + ((fxPos - 1) % 3)];
-		a2 = lpf_b2 = f5State[((k + 1) * 3) + ((fxPos - 2) % 3)];
+		b0 = lpf_b0 * f5State[(k * 3) + fxPos0];
+		b1 = lpf_b1 = f5State[(k * 3) + fxPos1];
+		b2 = lpf_b2 = f5State[(k * 3) + fxPos2];
+		a1 = lpf_b2 = f5State[((k + 1) * 3) + fxPos1];
+		a2 = lpf_b2 = f5State[((k + 1) * 3) + fxPos2];
 
-		f5State[((k + 1) * 3) + fxPos] = b0 + b1 + b2 - a1 - a2;
+		f5State[((k + 1) * 3) + fxPos0] = b0 + b1 + b2 - (a1 + a2);
 
 	}
 
