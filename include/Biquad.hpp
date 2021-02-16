@@ -1,6 +1,22 @@
 #ifndef BIQUAD_HPP
 #define BIQUAD_HPP
 
+#include <cstddef>
+
+struct Coefs
+{
+
+		Coefs();
+		Coefs(float, float, float, float, float);
+
+	float	b0;
+	float	b1;
+	float	b2;
+	float	a1;
+	float	a2;
+
+}; /* struct Coefs */
+
 struct Biquad
 {
 
@@ -9,11 +25,7 @@ struct Biquad
 
 	float	process(float);
 
-	float	b0;
-	float	b1;
-	float	b2;
-	float	a1;
-	float	a2;
+	Coefs	coefs;
 
 	float*	z0State;
 	float*	z1State;
@@ -31,11 +43,7 @@ struct Biquad2D
 
 	float*	process(float*);
 
-	float	b0;
-	float	b1;
-	float	b2;
-	float	a1;
-	float	a2;
+	Coefs	coefs;
 
 	float*	z0State;
 	float*	z1State;

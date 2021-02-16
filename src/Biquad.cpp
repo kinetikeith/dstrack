@@ -2,8 +2,18 @@
 
 #include <algorithm>
 
-Biquad::Biquad(size_t o) :
-	order(o)
+Coefs::Coefs()
+{
+
+}
+
+Coefs::Coefs(float _b0, float _b1, float _b2, float _a1, float _a2) :
+	b0(_b0), b1(_b1), b2(_b2), a1(_a1), a2(_a2)
+{
+
+}
+
+Biquad::Biquad(size_t o) : order(o)
 {
 
 	z0State = new float[o + 1];
@@ -29,19 +39,19 @@ Biquad::~Biquad()
 float Biquad::process(float zn)
 {
 	
-	std::copy(z1State, z1State + order, z2State);
-	std::copy(z0State, z0State + order, z1State);
+	std::copy(z1State, z1State + order + 1, z2State);
+	std::copy(z0State, z0State + order + 1, z1State);
 	z0State[0] = zn;
 
 	for(unsigned int i = 0; i < order; i++)
 	{
 
 		z0State[i + 1] =
-			(b0 * z0State[i]) +
-			(b1 * z1State[i]) +
-			(b2 * z2State[i]) -
-			(a1 * z1State[i + 1]) -
-			(a2 * z2State[i + 1]);
+			(coefs.b0 * z0State[i]) +
+			(coefs.b1 * z1State[i]) +
+			(coefs.b2 * z2State[i]) -
+			(coefs.a1 * z1State[i + 1]) -
+			(coefs.a2 * z2State[i + 1]);
 
 	}
 
@@ -50,7 +60,7 @@ float Biquad::process(float zn)
 }
 
 Biquad2D::Biquad2D(size_t o, size_t w) : 
-	order(o), width(w), zSize(o * w)
+	order(o), width(w), zSize((o + 1) * w)
 {
 
 	z0State = new float[zSize];
@@ -73,7 +83,7 @@ Biquad2D::~Biquad2D()
 
 }
 
-float* process(float* znState)
+float* Biquad2D::process(float* znState)
 {
 
 	std::copy(z1State, z1State + zSize, z2State);
@@ -87,11 +97,11 @@ float* process(float* znState)
 		{
 
 			z0State[((i + 1) * width) + j] =
-			(b0 * z0State[(i * width) + j]) +
-			(b1 * z1State[(i * width) + j]) +
-			(b2 * z2State[(i * width) + j]) -
-			(a1 * z1State[((i + 1) * width) + j]) -
-			(a2 * z2State[((i + 1) * width) + j]);
+			(coefs.b0 * z0State[(i * width) + j]) +
+			(coefs.b1 * z1State[(i * width) + j]) +
+			(coefs.b2 * z2State[(i * width) + j]) -
+			(coefs.a1 * z1State[((i + 1) * width) + j]) -
+			(coefs.a2 * z2State[((i + 1) * width) + j]);
 
 		}
 
