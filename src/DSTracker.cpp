@@ -5,36 +5,38 @@
 
 #include <iostream>
 
-DSTracker::DSTracker(float mFreq, int wSize, int fOrder, float sRate, int bSize) :
-	minFreq(mFreq), winSize(wSize), sampRate(sRate), bufSize(bSize),
-	maxDelay(sRate / (mFreq * 4)), sigSize(maxDelay + 1), sigPos(0),
-	magPreHighpass(fOrder, wSize), argPreHighpass(fOrder, wSize),
-	magLowpass(fOrder, wSize), argLowpass(fOrder, wSize),
-	magPostLowpass(fOrder), argPostLowpass(fOrder)
+DSTracker::DSTracker(float mFreq, int wSize, int fOrder, float sRate) :
+	minFreq(mFreq),
+	winSize(wSize),
+	sampRate(sRate),
+	maxDelay(sRate / (mFreq * 4)),
+	sigSize(maxDelay + 1), sigPos(0),
+	preMagHighpass(fOrder, wSize),
+	preArgHighpass(fOrder, wSize),
+	deltaMagLowpass(fOrder, wSize),
+	deltaArgLowpass(fOrder, wSize),
+	resMagLowpass(fOrder),
+	resArgLowpass(fOrder)
 {
 
+	/* Input Signal */
 	sigBuffer = new float[sigSize];
 	std::fill_n(sigBuffer, sigSize, 0.0f);
 
-	argPreBuffer = new float[winSize];
-	std::fill_n(argPreBuffer, winSize, 0.0f);
-
-	probBuffer = new float[winSize];
-	std::fill_n(probBuffer, winSize, 0.0f);
-
-	magResBuffer = new float[bufSize];
-	std::fill_n(magResBuffer, bufSize, 0.0f);
-	argResBuffer = new float[bufSize];
-	std::fill_n(argResBuffer, bufSize, 0.0f);
+	/* Autocorrelation Buffers */
+	rawArg = new float[winSize];
+	std::fill_n(rawArg, winSize, 0.0f);
 
 	preMag = new float[winSize];
 	preArg = new float[winSize];
+
 	deltaMag = new float[winSize];
 	deltaArg = new float[winSize];
 
-	float postMag = 0.0f;
-	float postArg = 0.0f;
+	prob = new float[winSize];
+	std::fill_n(prob, winSize, 0.0f);
 
+	/* Might as well calculate filter coefs now... */
 	calcCoefs();
 
 }
@@ -44,29 +46,15 @@ DSTracker::~DSTracker()
 
 	delete[] sigBuffer;
 
-	delete[] argPreBuffer;
-	delete[] probBuffer;
+	delete[] rawArg;
 
 	delete[] preMag;
 	delete[] preArg;
+
 	delete[] deltaMag;
 	delete[] deltaArg;
 
-	delete[] magResBuffer;
-
-}
-
-float* DSTracker::getMagBuffer()
-{
-
-	return magResBuffer;
-
-}
-
-float* DSTracker::getArgBuffer()
-{
-
-	return argResBuffer;
+	delete[] prob;
 
 }
 
@@ -74,8 +62,8 @@ void DSTracker::calcCoefs()
 {
 
 	/* Linkwitz-Riley LPF and HPF */
-	float theta_c = (float(M_PI) * minFreq) / sampRate;
-	float omega_c = float(M_PI) * minFreq;
+	float theta_c = (M_PI * minFreq) / sampRate;
+	float omega_c = M_PI * minFreq;
 	float k = omega_c / std::tan(theta_c);
 	float delta = (k * k) + (omega_c * omega_c) + (2 * k * omega_c);
 
@@ -93,12 +81,12 @@ void DSTracker::calcCoefs()
 		((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta,
 		((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta);
 
-	magPreHighpass.coefs = hpfCoefs;
-	argPreHighpass.coefs = hpfCoefs;
-	magLowpass.coefs = lpfCoefs;
-	argLowpass.coefs = lpfCoefs;
-	magPostLowpass.coefs = lpfCoefs;
-	argPostLowpass.coefs = lpfCoefs;
+	preMagHighpass.coefs = hpfCoefs;
+	preArgHighpass.coefs = hpfCoefs;
+	deltaMagLowpass.coefs = lpfCoefs;
+	deltaArgLowpass.coefs = lpfCoefs;
+	resMagLowpass.coefs = lpfCoefs;
+	resArgLowpass.coefs = lpfCoefs;
 
 }
 
@@ -113,26 +101,24 @@ void DSTracker::processSample(float sample)
 
 	calcResult();
 
-	magRes = magPostLowpass.process(postMag);
-	argRes = argPostLowpass.process(postArg);
+	filterResult();
 
-	sigPost = (sigPos + 1) % sigSize;
+	sigPos = (sigPos + 1) % sigSize;
 
 }
 
-void DSTracker::processFrame(float* buf)
+void DSTracker::processFrame(float* inBuf, float* outMagBuf, float* outArgBuf, int bufSize)
 {
 
 	for(int i = 0; i < bufSize; i++)
 	{
 
-		processSample(buf[i]);
+		processSample(inBuf[i]);
 		
-		magResBuffer[i] = magRes;
-		argResBuffer[i] = argRes;
+		outMagBuf[i] = resMag;
+		outArgBuf[i] = resArg;
 
 	}
-
 
 }
 
@@ -140,30 +126,34 @@ void DSTracker::autocorrelate()
 {
 
 	float delay;
-	float sinVal = sigBuffer[sigPos];
-	float cosVal;
-	int cosPos1;
-	int cosPos2;
+
+	float a = sigBuffer[sigPos];
+	float b;
+
+	float t;
+	float tI;
+	int i0;
+	int i1;
+
 	float argDelta;
 	float arg;
-	float t;
-	float lower;
 
 	for(int j = 0; j < winSize; j++)
 	{
 
 		delay = maxDelay * (float(j + 1) / winSize);
-		t = std::modf(delay, &lower);
-		cosPos1 = ((sigPos - int(lower)) + sigSize) % sigSize;
-		cosPos2 = ((sigPos - int(std::ceil(delay))) + sigSize) % sigSize;
-		cosVal = std::lerp(sigBuffer[cosPos1], sigBuffer[cosPos2], t);
 
-		preMag[j] = std::sqrt((sinVal * sinVal) + (cosVal * cosVal));
+		t = std::modf(delay, &tI);
+		i0 = ((sigPos - int(tI)) + sigSize) % sigSize;
+		i1 = ((sigPos - int(tI + 1)) + sigSize) % sigSize;
 
-		arg = std::atan(cosVal / sinVal);
-		argDelta = (arg - argPreBuffer[j]) / M_PI;
-		argPreBuffer[j] = arg;
+		b = std::lerp(sigBuffer[i0], sigBuffer[i1], t);
 
+		arg = std::atan(b / a);
+		argDelta = (arg - rawArg[j]) / M_PI;
+		rawArg[j] = arg;
+
+		preMag[j] = std::sqrt((a * a) + (b * b));
 		preArg[j] = argDelta - std::round(argDelta);
 
 	}
@@ -173,24 +163,24 @@ void DSTracker::autocorrelate()
 void DSTracker::filterAC()
 {
 
-	float* mBuf = magPreHighpass.process(preMag);
-	float* aBuf = argPreHighpass.process(preArg);
+	float* m = preMagHighpass.process(preMag);
+	float* a = preArgHighpass.process(preArg);
 
 	for(unsigned int j = 0; j < winSize; j++)
 	{
 
-		deltaMag[j] = std::abs(mBuf[j]);
-		deltaArg[j] = std::abs(mBuf[j]);
+		deltaMag[j] = std::abs(m[j]);
+		deltaArg[j] = std::abs(a[j]);
 
 	}
 
-	mBuf = magLowpass.process(deltaMag);
-	aBuf = argLowpass.process(deltaArg);
+	m = deltaMagLowpass.process(deltaMag);
+	a = deltaArgLowpass.process(deltaArg);
 
 	for(unsigned int j = 0; j < winSize; j++)
 	{
 
-		probBuffer[j] = mBuf[j] * aBuf[j];
+		prob[j] = m[j] * a[j];
 
 	}
 
@@ -200,21 +190,30 @@ void DSTracker::calcResult()
 {
 	
 	int minJ = 0;
-	float minVal = probBuffer[minJ];
+	float minVal = prob[minJ];
 	
 	for(int j = 0; j < winSize; j++)
 	{
 
-		if(probBuffer[j] < minVal)
+		if(prob[j] < minVal)
 		{
 
-			minVal = probBuffer[j];
+			minJ = j;
+			minVal = prob[j];
 
 		}
 
 	}
 
-	postMag = std::abs(preMag[minJ]);
-	postArg = std::abs(preArg[minJ]);
+	resMag = std::abs(preMag[minJ]);
+	resArg = std::abs(preArg[minJ]);
 
-}	
+}
+
+void DSTracker::filterResult()
+{
+
+	resMag = resMagLowpass.process(resMag);
+	resArg = resArgLowpass.process(resArg);
+
+}

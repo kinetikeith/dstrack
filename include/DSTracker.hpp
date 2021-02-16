@@ -7,14 +7,11 @@ class DSTracker
 {
 public:
 
-		DSTracker(float minFreq, int winSize, int filtOrder, float sampRate, int bufSize);
+		DSTracker(float minFreq, int winSize, int filtOrder, float sampRate);
 		~DSTracker();
 
 	void	processSample(float);
-	void	processFrame(float* buf);
-
-	float*	getMagBuffer();
-	float*	getArgBuffer();
+	void	processFrame(float*, float*, float*, int);
 
 	void	calcCoefs();
 
@@ -28,15 +25,16 @@ public:
 	float	minFreq;
 	float	sampRate;
 	int	winSize;
-	int	bufSize;
 
 	float	maxDelay;
 
-	float*	sigBuffer; // sigSize length
+	/* Input Signal */
+	float*	sigBuffer;
 	int	sigSize;
 	int	sigPos;
-
-	float*	argPreBuffer; // winSize length
+	
+	/* Autocorrelation Buffers (of winSize length) */
+	float*	rawArg;
 
 	float*	preMag;
 	float*	preArg;
@@ -44,23 +42,21 @@ public:
 	float*	deltaMag;
 	float*	deltaArg;
 
-	float*	probBuffer;
+	float*	prob;
 
-	float	postMag;
-	float	postArg;
+	/* Result Vars */
+	float	resMag;
+	float	resArg;
 
-	float	magRes;
-	float	argRes;
+	/* Autocorrelation Filters */
+	Biquad2D	preMagHighpass;
+	Biquad2D	preArgHighpass;
+	Biquad2D	deltaMagLowpass;
+	Biquad2D	deltaArgLowpass;
 
-	float*	magResBuffer;
-	float*	argResBuffer;
-
-	Biquad2D	magPreHighpass;
-	Biquad2D	argPreHighpass;
-	Biquad2D	magLowpass;
-	Biquad2D	argLowpass;
-	Biquad		magPostLowpass;
-	Biquad		argPostLowpass;
+	/* Result Filters */
+	Biquad		resMagLowpass;
+	Biquad		resArgLowpass;
 
 }; /* class DSTracker */
 

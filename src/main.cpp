@@ -12,8 +12,6 @@ int main(int argc, char** argv)
 {
 
 	float sRate;
-	unsigned int bSize = 1024;
-	float* inBuffer = new float[bSize];
 
 	std::string path;
 	if(argc < 2)
@@ -52,37 +50,19 @@ int main(int argc, char** argv)
 	std::vector<float> fBuf = aFile.samples[0];
 	std::vector<std::vector<float>> outBuffer = {{}};
 
-	DSTracker dst(400, 12, 1, sRate, bSize);
-	float* argBuf = dst.getArgBuffer();
-	float* magBuf = dst.getMagBuffer();
+	DSTracker dst(300, 12, 2, sRate);
 
 	int i = 0;
-	int imod;
 	float val;
 	float phase;
-	Biquad b1(2);
-	b1.coefs = dst.argPreHighpass.coefs;
 
 	while(i < nSamples)
 	{
 
-		imod = i % bSize;
+		dst.processSample(fBuf[i]);
 
-		inBuffer[imod] = fBuf[i];
-		val = b1.process(fBuf[i]);
-		i++;
-		if(imod == (bSize - 1))
-		{
-
-			dst.processFrame(inBuffer);
-
-			std::cout << dst.probBuffer[0] << std::endl;
-			//std::cout << dst.f4State[(dst.filtOrder * 3) + dst.fxPos0] << std::endl;
-		}
-
-		// phase = fmod(phase + (220.0 / sRate), 1.0);
-		val = std::sin(2 * M_PI * phase) * magBuf[imod] * 100;
-		//std::cout << val << std::endl;
+		phase = fmod(phase + (220.0 / sRate), 1.0);
+		val = std::sin(2 * M_PI * phase) * dst.resMag;
 		outBuffer[0].push_back(val);
 
 	}
