@@ -61,9 +61,11 @@ int main(int argc, char** argv)
 
 		dst.processSample(fBuf[i]);
 
-		phase = fmod(phase + (220.0 / sRate), 1.0);
-		val = std::sin(2 * M_PI * phase) * dst.resMag;
+		phase = std::fmod(phase + dst.resArg, 1.0);
+		val = std::sin(2.0 * M_PI * phase) * dst.resMag;
 		outBuffer[0].push_back(val);
+
+		i++;
 
 	}
 

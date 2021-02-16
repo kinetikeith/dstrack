@@ -128,6 +128,12 @@ void DSTracker::autocorrelate()
 	float delay;
 
 	float a = sigBuffer[sigPos];
+	if(a == 0.0)
+	{
+		a = 0.000000001;
+
+	}
+
 	float b;
 
 	float t;
@@ -214,6 +220,6 @@ void DSTracker::filterResult()
 {
 
 	resMag = resMagLowpass.process(resMag);
-	resArg = resArgLowpass.process(resArg);
+	resArg = resArgLowpass.process(resArg) / 2.0;
 
 }
