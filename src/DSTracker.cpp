@@ -102,25 +102,34 @@ void DSTracker::calcCoefs()
 
 }
 
+void DSTracker::processSample(float sample)
+{
+
+	sigBuffer[sigPos] = sample;
+
+	autocorrelate();
+
+	filterAC();
+
+	calcResult();
+
+	magRes = magPostLowpass.process(postMag);
+	argRes = argPostLowpass.process(postArg);
+
+	sigPost = (sigPos + 1) % sigSize;
+
+}
+
 void DSTracker::processFrame(float* buf)
 {
 
 	for(int i = 0; i < bufSize; i++)
 	{
 
-		sigBuffer[sigPos] = buf[i];
+		processSample(buf[i]);
 		
-		autocorrelate();
-
-		filterAC();
-
-		calcResult();
-
-		magResBuffer[i] = magPostLowpass.process(postMag);
-		argResBuffer[i] = argPostLowpass.process(postArg);
-
-		// Prepare for next frame
-		sigPos = (sigPos + 1) % sigSize;
+		magResBuffer[i] = magRes;
+		argResBuffer[i] = argRes;
 
 	}
 
@@ -145,8 +154,8 @@ void DSTracker::autocorrelate()
 
 		delay = maxDelay * (float(j + 1) / winSize);
 		t = std::modf(delay, &lower);
-		cosPos1 = (sigPos - int(lower)) % sigSize;
-		cosPos2 = (sigPos - int(std::ceil(delay))) % sigSize;
+		cosPos1 = ((sigPos - int(lower)) + sigSize) % sigSize;
+		cosPos2 = ((sigPos - int(std::ceil(delay))) + sigSize) % sigSize;
 		cosVal = std::lerp(sigBuffer[cosPos1], sigBuffer[cosPos2], t);
 
 		preMag[j] = std::sqrt((sinVal * sinVal) + (cosVal * cosVal));

@@ -10,6 +10,7 @@ public:
 		DSTracker(float minFreq, int winSize, int filtOrder, float sampRate, int bufSize);
 		~DSTracker();
 
+	void	processSample(float);
 	void	processFrame(float* buf);
 
 	float*	getMagBuffer();
@@ -35,17 +36,21 @@ public:
 	int	sigSize;
 	int	sigPos;
 
+	float*	argPreBuffer; // winSize length
+
 	float*	preMag;
 	float*	preArg;
 
 	float*	deltaMag;
 	float*	deltaArg;
 
+	float*	probBuffer;
+
 	float	postMag;
 	float	postArg;
 
-	float*	argPreBuffer; // winSize length
-	float*	probBuffer; // winSize length
+	float	magRes;
+	float	argRes;
 
 	float*	magResBuffer;
 	float*	argResBuffer;
