@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	std::vector<float> fBuf = aFile.samples[0];
 	std::vector<std::vector<float>> outBuffer = {{}};
 
-	DSTracker dst(300, 12, 2, sRate);
+	DSTracker dst(300, 3000, 6, 1, sRate);
 
 	int i = 0;
 	float val;

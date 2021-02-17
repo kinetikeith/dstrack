@@ -5,12 +5,55 @@
 
 #include <iostream>
 
-DSTracker::DSTracker(float mFreq, int wSize, int fOrder, float sRate) :
-	minFreq(mFreq),
+Coefs getLinkwitzRileyHPF(float f_c, float f_s)
+{
+	
+	/* Linkwitz-Riley LPF and HPF */
+	float theta_c = (M_PI * f_c) / f_s;
+	float omega_c = M_PI * f_c;
+	float k = omega_c / std::tan(theta_c);
+	float delta = (k * k) + (omega_c * omega_c) + (2 * k * omega_c);
+
+	return Coefs(
+		(k * k) / delta,
+		(-2.0f * (k * k)) / delta,
+		(k * k) / delta,
+		((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta,
+		((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta);
+
+}
+
+Coefs getLinkwitzRileyLPF(float f_c, float f_s)
+{
+
+	float theta_c = (M_PI * f_c) / f_s;
+	float omega_c = M_PI * f_c;
+	float k = omega_c / std::tan(theta_c);
+	float delta = (k * k) + (omega_c * omega_c) + (2 * k * omega_c);
+
+	return Coefs(
+		(omega_c * omega_c) / delta,
+		(2.0f * (omega_c * omega_c)) / delta,
+		(omega_c * omega_c) / delta,
+		((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta,
+		((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta);
+
+}
+
+
+
+
+
+DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder, float sRate) :
+	minFreq(mnFreq),
+	maxFreq(mxFreq),
 	winSize(wSize),
 	sampRate(sRate),
-	maxDelay(sRate / (mFreq * 4)),
+	minDelay(sRate / (mxFreq * 4)),
+	maxDelay(sRate / (mnFreq * 4)),
 	sigSize(maxDelay + 1), sigPos(0),
+	sigLowpass(fOrder),
+	sigHighpass(fOrder),
 	preMagHighpass(fOrder, wSize),
 	preArgHighpass(fOrder, wSize),
 	deltaMagLowpass(fOrder, wSize),
@@ -61,25 +104,8 @@ DSTracker::~DSTracker()
 void DSTracker::calcCoefs()
 {
 
-	/* Linkwitz-Riley LPF and HPF */
-	float theta_c = (M_PI * minFreq) / sampRate;
-	float omega_c = M_PI * minFreq;
-	float k = omega_c / std::tan(theta_c);
-	float delta = (k * k) + (omega_c * omega_c) + (2 * k * omega_c);
-
-	Coefs hpfCoefs(
-		(k * k) / delta,
-		(-2.0f * (k * k)) / delta,
-		(k * k) / delta,
-		((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta,
-		((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta);
-
-	Coefs lpfCoefs(
-		(omega_c * omega_c) / delta,
-		(2.0f * (omega_c * omega_c)) / delta,
-		(omega_c * omega_c) / delta,
-		((-2.0f * (k * k)) + (2.0f * (omega_c * omega_c))) / delta,
-		((-2.0f * k * omega_c) + (k * k) + (omega_c * omega_c)) / delta);
+	Coefs hpfCoefs = getLinkwitzRileyHPF(minFreq, sampRate);
+	Coefs lpfCoefs = getLinkwitzRileyLPF(minFreq, sampRate);
 
 	preMagHighpass.coefs = hpfCoefs;
 	preArgHighpass.coefs = hpfCoefs;
@@ -88,12 +114,15 @@ void DSTracker::calcCoefs()
 	resMagLowpass.coefs = lpfCoefs;
 	resArgLowpass.coefs = lpfCoefs;
 
+	sigLowpass.coefs = getLinkwitzRileyLPF(maxFreq, sampRate);
+	sigHighpass.coefs = getLinkwitzRileyHPF(minFreq, sampRate);
+
 }
 
 void DSTracker::processSample(float sample)
 {
 
-	sigBuffer[sigPos] = sample;
+	sigBuffer[sigPos] = sigLowpass.process(sigHighpass.process(sample));
 
 	autocorrelate();
 
@@ -147,7 +176,7 @@ void DSTracker::autocorrelate()
 	for(int j = 0; j < winSize; j++)
 	{
 
-		delay = maxDelay * (float(j + 1) / winSize);
+		delay = std::lerp(maxDelay, minDelay, (float(j + 1) / winSize));
 
 		t = std::modf(delay, &tI);
 		i0 = ((sigPos - int(tI)) + sigSize) % sigSize;

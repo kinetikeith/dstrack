@@ -7,7 +7,7 @@ class DSTracker
 {
 public:
 
-		DSTracker(float minFreq, int winSize, int filtOrder, float sampRate);
+		DSTracker(float minFreq, float maxFreq, int winSize, int filtOrder, float sampRate);
 		~DSTracker();
 
 	void	processSample(float);
@@ -23,9 +23,11 @@ public:
 	void	filterResult();
 
 	float	minFreq;
+	float	maxFreq;
 	float	sampRate;
 	int	winSize;
 
+	float	minDelay;
 	float	maxDelay;
 
 	/* Input Signal */
@@ -47,6 +49,10 @@ public:
 	/* Result Vars */
 	float	resMag;
 	float	resArg;
+
+	/* Signal Filters */
+	Biquad		sigLowpass;
+	Biquad		sigHighpass;
 
 	/* Autocorrelation Filters */
 	Biquad2D	preMagHighpass;
