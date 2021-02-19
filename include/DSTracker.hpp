@@ -13,6 +13,8 @@ public:
 	void	processSample(float);
 	void	processFrame(float*, float*, float*, int);
 
+	void	setFreqRange(float, float);
+
 	void	calcCoefs();
 
 	void	autocorrelate();
@@ -22,13 +24,15 @@ public:
 	void	calcResult();
 	void	filterResult();
 
-	float	minFreq;
-	float	maxFreq;
-	float	sampRate;
-	int	winSize;
+	float		minFreq;
+	const float	minFreqOrig;
+	float		maxFreq;
 
-	float	minDelay;
-	float	maxDelay;
+	float		minDelay;
+	float		maxDelay;
+
+	float		sampRate;
+	int		winSize;
 
 	/* Input Signal */
 	float*	sigBuffer;

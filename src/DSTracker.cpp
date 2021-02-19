@@ -40,12 +40,9 @@ Coefs getLinkwitzRileyLPF(float f_c, float f_s)
 
 }
 
-
-
-
-
 DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder, float sRate) :
 	minFreq(mnFreq),
+	minFreqOrig(mnFreq),
 	maxFreq(mxFreq),
 	winSize(wSize),
 	sampRate(sRate),
@@ -150,6 +147,21 @@ void DSTracker::processFrame(float* inBuf, float* outMagBuf, float* outArgBuf, i
 	}
 
 }
+
+void DSTracker::setFreqRange(float newMinFreq, float newMaxFreq)
+{
+
+	minFreq = std::max(newMinFreq, minFreqOrig);
+	assert(newMaxFreq > minFreq);
+	maxFreq = newMaxFreq;
+
+	maxDelay = sampRate / (minFreq * 4);
+	minDelay = sampRate / (maxFreq * 4);
+
+	calcCoefs();
+
+}
+
 
 void DSTracker::autocorrelate()
 {
