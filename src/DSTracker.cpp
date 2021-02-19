@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include <iostream>
+#include <cassert>
 
 Coefs getLinkwitzRileyHPF(float f_c, float f_s)
 {
