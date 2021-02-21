@@ -15,6 +15,12 @@ public:
 
 	void	setFreqRange(float, float);
 
+	/* Result Vars */
+	float	resMag;
+	float	resArg;
+
+private:
+
 	void	calcCoefs();
 
 	void	autocorrelate();
@@ -49,10 +55,6 @@ public:
 	float*	deltaArg;
 
 	float*	prob;
-
-	/* Result Vars */
-	float	resMag;
-	float	resArg;
 
 	/* Signal Filters */
 	Biquad		sigLowpass;

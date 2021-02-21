@@ -152,7 +152,7 @@ void DSTracker::setFreqRange(float newMinFreq, float newMaxFreq)
 {
 
 	minFreq = std::max(newMinFreq, minFreqOrig);
-	assert(newMaxFreq > minFreq);
+	assert(newMaxFreq >= minFreq);
 	maxFreq = newMaxFreq;
 
 	maxDelay = sampRate / (minFreq * 4);
