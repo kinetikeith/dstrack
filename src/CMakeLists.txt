@@ -7,7 +7,7 @@ add_library(
 	Biquad.cpp
 )
 
-if(BUILD_TEST)
+if(BUILD_WAV)
 
 	add_executable(dstrack-wav main.cpp DSTracker.cpp Biquad.cpp)
 

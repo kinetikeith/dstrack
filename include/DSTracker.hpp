@@ -15,9 +15,8 @@ public:
 
 	void	setFreqRange(float, float);
 
-	/* Result Vars */
-	float	resMag;
-	float	resArg;
+	float	getMagResult();
+	float	getArgResult();
 
 private:
 
@@ -55,6 +54,10 @@ private:
 	float*	deltaArg;
 
 	float*	prob;
+
+	/* Result Vars */
+	float	resMag;
+	float	resArg;
 
 	/* Signal Filters */
 	Biquad		sigLowpass;

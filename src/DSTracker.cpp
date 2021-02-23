@@ -98,24 +98,6 @@ DSTracker::~DSTracker()
 
 }
 
-void DSTracker::calcCoefs()
-{
-
-	Coefs hpfCoefs = getLinkwitzRileyHPF(minFreq, sampRate);
-	Coefs lpfCoefs = getLinkwitzRileyLPF(minFreq, sampRate);
-
-	preMagHighpass.coefs = hpfCoefs;
-	preArgHighpass.coefs = hpfCoefs;
-	deltaMagLowpass.coefs = lpfCoefs;
-	deltaArgLowpass.coefs = lpfCoefs;
-	resMagLowpass.coefs = lpfCoefs;
-	resArgLowpass.coefs = lpfCoefs;
-
-	sigLowpass.coefs = getLinkwitzRileyLPF(maxFreq, sampRate);
-	sigHighpass.coefs = getLinkwitzRileyHPF(minFreq, sampRate);
-
-}
-
 void DSTracker::processSample(float sample)
 {
 
@@ -162,6 +144,37 @@ void DSTracker::setFreqRange(float newMinFreq, float newMaxFreq)
 
 }
 
+float DSTracker::getMagResult()
+{
+
+	return resMag;
+
+}
+
+float DSTracker::getArgResult()
+{
+
+	return resArg;
+
+}
+
+void DSTracker::calcCoefs()
+{
+
+	Coefs hpfCoefs = getLinkwitzRileyHPF(minFreq, sampRate);
+	Coefs lpfCoefs = getLinkwitzRileyLPF(minFreq, sampRate);
+
+	preMagHighpass.coefs = hpfCoefs;
+	preArgHighpass.coefs = hpfCoefs;
+	deltaMagLowpass.coefs = lpfCoefs;
+	deltaArgLowpass.coefs = lpfCoefs;
+	resMagLowpass.coefs = lpfCoefs;
+	resArgLowpass.coefs = lpfCoefs;
+
+	sigLowpass.coefs = getLinkwitzRileyLPF(maxFreq, sampRate);
+	sigHighpass.coefs = getLinkwitzRileyHPF(minFreq, sampRate);
+
+}
 
 void DSTracker::autocorrelate()
 {
