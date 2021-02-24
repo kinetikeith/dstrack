@@ -5,6 +5,23 @@
 
 #include <cassert>
 
+#if __cplusplus < 2020022L
+
+namespace std
+{
+
+	template<typename T>
+	T lerp(T a, T b, T t)
+	{
+
+		return a + (t * (b - a));
+
+	}
+
+}
+
+#endif
+
 Coefs getLinkwitzRileyHPF(float f_c, float f_s)
 {
 	
