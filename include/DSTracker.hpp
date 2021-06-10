@@ -1,5 +1,5 @@
-#ifndef DSTRACKER_HPP
-#define DSTRACKER_HPP
+#ifndef DST_DSTRACKER_HPP
+#define DST_DSTRACKER_HPP
 
 #include "Biquad.hpp"
 
@@ -76,4 +76,4 @@ private:
 }; /* class DSTracker */
 
 
-#endif /* DSTRACKER_HPP */
+#endif /* DST_DSTRACKER_HPP */

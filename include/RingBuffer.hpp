@@ -1,0 +1,4 @@
+#ifndef DST_RINGBUFFER_HPP
+#define DST_RINGBUFFER_HPP
+
+#endif /* DST_RINGBUFFER_HPP */

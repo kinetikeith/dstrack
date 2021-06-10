@@ -1,5 +1,5 @@
-#ifndef BIQUAD_HPP
-#define BIQUAD_HPP
+#ifndef DST_BIQUAD_HPP
+#define DST_BIQUAD_HPP
 
 #include <cstddef>
 
@@ -56,4 +56,4 @@ struct Biquad2D
 
 }; /* class Biquad2D */
 
-#endif /* BIQUAD_HPP */
+#endif /* DST_BIQUAD_HPP */
