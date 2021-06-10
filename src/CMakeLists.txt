@@ -9,7 +9,12 @@ add_library(
 
 if(BUILD_WAV)
 
-	add_executable(dstrack-wav main.cpp DSTracker.cpp Biquad.cpp)
+	add_executable(
+		dstrack-wav
+		main.cpp
+		DSTracker.cpp
+		Biquad.cpp
+		)
 
 	target_link_libraries(dstrack-wav dstrack)
 
