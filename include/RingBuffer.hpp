@@ -16,11 +16,12 @@ public:
 		RingBuffer(unsigned long);
 		~RingBuffer();
 
-	void	push_back(T&);
+	void	push_back(T);
 	void	resize(unsigned long, bool = true);
 
 	T	get(long);
-	T	get(double);
+	T	getLerp(float);
+	T	getCurrent();
 
 private:
 
@@ -61,7 +62,7 @@ RingBuffer<T>::~RingBuffer()
 
 
 template <typename T>
-void RingBuffer<T>::push_back(T& val)
+void RingBuffer<T>::push_back(T val)
 {
 
 	currentIndex = (currentIndex + 1) % bufferSize;
@@ -78,20 +79,28 @@ T RingBuffer<T>::get(long offset)
 
 }
 
-
 template <typename T>
-T RingBuffer<T>::get(double offset)
+T RingBuffer<T>::getLerp(float offset)
 {
 
-	double offsetF;
+	float offsetF;
 	long offsetI;
 
-	double t = std::modf(offset, &offsetF);
+	float t = std::modf(offset, &offsetF);
 	offsetI = offsetF;
 
 	return std::lerp(get(offsetI), get(offsetI + 1), t);
 
 }
+
+template <typename T>
+T RingBuffer<T>::getCurrent()
+{
+
+	return buffer[currentIndex];
+
+}
+
 
 template <typename T>
 void RingBuffer<T>::resize(unsigned long newBufferSize, bool keepContents)

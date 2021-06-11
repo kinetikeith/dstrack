@@ -31,19 +31,17 @@ private:
 	void	filterResult();
 
 	float		minFreq;
-	const float	minFreqOrig;
 	float		maxFreq;
 
 	float		minDelay;
 	float		maxDelay;
+	float		distDelay;
 
 	float		sampRate;
 	int		winSize;
 
 	/* Input Signal */
-	float*	sigBuffer;
-	int	sigSize;
-	int	sigPos;
+	RingBuffer<float>	ringBuffer;
 	
 	/* Autocorrelation Buffers (of winSize length) */
 	float*	rawArg;

@@ -41,15 +41,16 @@ Coefs getLinkwitzRileyLPF(float f_c, float f_s)
 
 }
 
-DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder, float sRate) :
+DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder,
+		float sRate) :
 	minFreq(mnFreq),
-	minFreqOrig(mnFreq),
 	maxFreq(mxFreq),
 	winSize(wSize),
 	sampRate(sRate),
 	minDelay(sRate / (mxFreq * 4)),
 	maxDelay(sRate / (mnFreq * 4)),
-	sigSize(maxDelay + 1), sigPos(0),
+	distDelay((maxDelay - minDelay) / wSize),
+	ringBuffer(((unsigned long) maxDelay) + 1),
 	sigLowpass(fOrder),
 	sigHighpass(fOrder),
 	preMagHighpass(fOrder, wSize),
@@ -59,10 +60,6 @@ DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder, float sR
 	resMagLowpass(fOrder),
 	resArgLowpass(fOrder)
 {
-
-	/* Input Signal */
-	sigBuffer = new float[sigSize];
-	std::fill_n(sigBuffer, sigSize, 0.0f);
 
 	/* Autocorrelation Buffers */
 	rawArg = new float[winSize];
@@ -85,8 +82,6 @@ DSTracker::DSTracker(float mnFreq, float mxFreq, int wSize, int fOrder, float sR
 DSTracker::~DSTracker()
 {
 
-	delete[] sigBuffer;
-
 	delete[] rawArg;
 
 	delete[] preMag;
@@ -102,7 +97,7 @@ DSTracker::~DSTracker()
 void DSTracker::processSample(float sample)
 {
 
-	sigBuffer[sigPos] = sigLowpass.process(sigHighpass.process(sample));
+	ringBuffer.push_back(sigLowpass.process(sigHighpass.process(sample)));
 
 	autocorrelate();
 
@@ -111,8 +106,6 @@ void DSTracker::processSample(float sample)
 	calcResult();
 
 	filterResult();
-
-	sigPos = (sigPos + 1) % sigSize;
 
 }
 
@@ -134,12 +127,22 @@ void DSTracker::processFrame(float* inBuf, float* outMagBuf, float* outArgBuf, i
 void DSTracker::setFreqRange(float newMinFreq, float newMaxFreq)
 {
 
-	minFreq = std::max(newMinFreq, minFreqOrig);
-	assert(newMaxFreq >= minFreq);
+	minFreq = newMinFreq;
 	maxFreq = newMaxFreq;
+	assert(maxFreq >= minFreq);
 
-	maxDelay = sampRate / (minFreq * 4);
+	float newMaxDelay = sampRate / (minFreq * 4);
+
+	if(newMaxDelay > maxDelay)
+	{
+
+		ringBuffer.resize(((unsigned long) newMaxDelay) + 1, true);
+
+	}
+
+	maxDelay = newMaxDelay;
 	minDelay = sampRate / (maxFreq * 4);
+	distDelay = (maxDelay - minDelay) / winSize;
 
 	calcCoefs();
 
@@ -180,38 +183,20 @@ void DSTracker::calcCoefs()
 void DSTracker::autocorrelate()
 {
 
-	float delay;
+	float a = ringBuffer.getCurrent();
+	a = a + (1.e-9f * (a == 0.0));
 
-	float a = sigBuffer[sigPos];
-	if(a == 0.0)
-	{
-		a = 0.000000001;
-
-	}
-
-	float b;
-
-	float t;
-	float tI;
-	int i0;
-	int i1;
-
-	float argDelta;
-	float arg;
+	double delay = minDelay;
 
 	for(int j = 0; j < winSize; j++)
 	{
 
-		delay = std::lerp(maxDelay, minDelay, (float(j + 1) / winSize));
+		delay += distDelay;
 
-		t = std::modf(delay, &tI);
-		i0 = ((sigPos - int(tI)) + sigSize) % sigSize;
-		i1 = ((sigPos - int(tI + 1)) + sigSize) % sigSize;
+		float b = ringBuffer.getLerp(-delay);
 
-		b = std::lerp(sigBuffer[i0], sigBuffer[i1], t);
-
-		arg = std::atan(b / a);
-		argDelta = (arg - rawArg[j]) / M_PI;
+		float arg = std::atan(b / a);
+		float argDelta = (arg - rawArg[j]) / M_PI;
 		rawArg[j] = arg;
 
 		preMag[j] = std::sqrt((a * a) + (b * b));
