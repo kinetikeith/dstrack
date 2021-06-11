@@ -28,7 +28,7 @@ private:
 	unsigned long	bufferSize;
 	unsigned long	currentIndex;
 
-} /* class RingBuffer */
+}; /* class RingBuffer */
 
 
 template <typename T>
@@ -42,11 +42,11 @@ T truemod(T x, T y)
 
 
 template <typename T>
-RingBuffer<T>::RingBuffer(unsigned long bufferSize_ = 0) :
+RingBuffer<T>::RingBuffer(unsigned long bufferSize_) :
 	bufferSize(bufferSize_)
 {
 
-	assertm(newBufferSize != 0, "buffer size must be greater than zero");
+	assert(bufferSize != 0);
 	buffer = new T[bufferSize_];
 
 }
@@ -86,7 +86,7 @@ T RingBuffer<T>::get(double offset)
 	double offsetF;
 	long offsetI;
 
-	double t = std::fmod(offset, &offsetF);
+	double t = std::modf(offset, &offsetF);
 	offsetI = offsetF;
 
 	return std::lerp(get(offsetI), get(offsetI + 1), t);
@@ -97,7 +97,7 @@ template <typename T>
 void RingBuffer<T>::resize(unsigned long newBufferSize, bool keepContents)
 {
 
-	assertm(newBufferSize != 0, "buffer size must be greater than zero");
+	assert(newBufferSize != 0);
 
 	T* newBuffer = new T[newBufferSize];
 
@@ -121,3 +121,5 @@ void RingBuffer<T>::resize(unsigned long newBufferSize, bool keepContents)
 	buffer = newBuffer;
 
 }
+
+#endif /* DST_RINGBUFFER_HPP */

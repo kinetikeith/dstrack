@@ -1,26 +1,10 @@
 #include "DSTracker.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
-#include <cassert>
-
-#if __cplusplus < 2020022L
-
-namespace std
-{
-
-	template<typename T>
-	T lerp(T a, T b, T t)
-	{
-
-		return a + (t * (b - a));
-
-	}
-
-}
-
-#endif
+#include "compat.hpp"
 
 Coefs getLinkwitzRileyHPF(float f_c, float f_s)
 {

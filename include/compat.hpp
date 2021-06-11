@@ -2,16 +2,15 @@
 #define DST_COMPAT_HPP
 
 #ifdef __has_include
-# if __has_include(<version>)
-#   include <version>
-# endif
+#	if __has_include(<version>)
+#		include <version>
+#	endif
 #endif
 
 namespace std
 {
 
-#if __has_cpp_attribute(__cpp_lib_interpolate)
-#else
+#ifndef __cpp_lib_interpolate
 	template <typename T1, typename T2>
 	T1 lerp(T1 v0, T1 v1, T2 t)
 	{

@@ -2,6 +2,7 @@
 #define DST_DSTRACKER_HPP
 
 #include "Biquad.hpp"
+#include "RingBuffer.hpp"
 
 class DSTracker
 {
